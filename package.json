@@ -20,6 +20,7 @@
     "lib-jitsi-meet": "git+https://github.com/thiagobrez/lib-jitsi-meet.git",
     "react-native-callstats": "3.61.0",
     "react-native-url-polyfill": "1.2.0",
+    "react-native-webrtc": "1.84.0",
     "xmldom": "0.1.27",
     "react-native-background-timer": "2.4.0"
   },
