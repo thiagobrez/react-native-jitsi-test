@@ -11,7 +11,17 @@
   },
   "dependencies": {
     "react": "16.9.0",
-    "react-native": "0.61.5"
+    "react-native": "0.61.5",
+    "jQuery-Impromptu": "github:trentrichardson/jQuery-Impromptu#v6.0.0",
+    "jitsi-meet-logger": "github:jitsi/jitsi-meet-logger#5ec92357570dc8f0b7ffc1528820721c84c6af8b",
+    "jquery": "3.5.1",
+    "jquery-contextmenu": "2.4.5",
+    "jquery-i18next": "1.2.1",
+    "lib-jitsi-meet": "git+https://github.com/thiagobrez/lib-jitsi-meet.git",
+    "react-native-callstats": "3.61.0",
+    "react-native-url-polyfill": "1.2.0",
+    "xmldom": "0.1.27",
+    "react-native-background-timer": "2.4.0"
   },
   "devDependencies": {
     "@babel/core": "^7.6.2",
@@ -21,7 +31,19 @@
     "eslint": "^6.5.1",
     "jest": "^24.9.0",
     "metro-react-native-babel-preset": "^0.56.0",
-    "react-test-renderer": "16.9.0"
+    "react-test-renderer": "16.9.0",
+    "@babel/plugin-proposal-class-properties": "7.1.0",
+    "@babel/plugin-proposal-export-default-from": "7.0.0",
+    "@babel/plugin-proposal-export-namespace-from": "7.0.0",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "7.4.4",
+    "@babel/plugin-proposal-optional-chaining": "7.2.0",
+    "@babel/plugin-transform-flow-strip-types": "7.0.0",
+    "@babel/preset-env": "7.1.0",
+    "@babel/preset-flow": "7.0.0",
+    "@babel/preset-react": "7.0.0",
+    "babel-eslint": "10.0.1",
+    "babel-loader": "8.0.4",
+    "string-replace-loader": "2.1.1"
   },
   "jest": {
     "preset": "react-native"
