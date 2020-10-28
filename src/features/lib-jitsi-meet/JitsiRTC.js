@@ -1,51 +1,16 @@
-import JitsiMeetJS from './';
+import JitsiMeetJS, {
+  JitsiConferenceEvents,
+  JitsiConnectionQualityEvents,
+  JitsiConnectionEvents,
+} from './';
 
 class JitsiRTC {
   jitsiConfig = {
     hosts: {
-      domain: 'voice.smashsuite.com',
-      muc: 'conference.voice.smashsuite.com',
+      domain: 'beta.meet.jit.si',
+      muc: 'conference.beta.meet.jit.si',
     },
-    bosh: 'https://voice.smashsuite.com/http-bind',
-    // websocket: 'wss://voice2.smashsuite.com/xmpp-websocket',
-    clientNode: 'http://jitsi.org/jitsimeet',
-
-    testing: {
-      // disableE2EE: false,
-      p2pTestMode: false,
-    },
-    enableNoAudioDetection: true,
-    enableNoisyMicDetection: true,
-    // startAudioOnly: false,
-    // startWithAudioMuted: false,
-    resolution: 720,
-    constraints: {
-      video: {
-        height: {
-          ideal: 720,
-          max: 720,
-          min: 240,
-        },
-      },
-    },
-    // startVideoMuted: 10,
-    // startWithVideoMuted: false,
-    // preferH264: true,
-    channelLastN: -1,
-    openBridgeChannel: true,
-    // openBridgeChannel: 'websocket',
-    // enableWelcomePage: true,
-    enableWelcomePage: false,
-    enableUserRolesBasedOnToken: false,
-
-    p2p: {
-      enabled: true,
-      stunServers: [
-        // { urls: 'stun:voice2.smashsuite.com:3478' },
-        {urls: 'stun:meet-jit-si-turnrelay.jitsi.net:443'},
-      ],
-    },
-    makeJsonParserHappy: 'even if last key had a trailing comma',
+    bosh: 'https://beta.meet.jit.si/http-bind',
   };
 
   constructor() {
@@ -57,9 +22,6 @@ class JitsiRTC {
     JitsiMeetJS.init(this.jitsiConfig);
 
     JitsiMeetJS.setLogLevel(JitsiMeetJS.logLevels.DEBUG);
-    // JitsiMeetJS.setLogLevel(JitsiMeetJS.logLevels.INFO);
-    // JitsiMeetJS.setLogLevel(JitsiMeetJS.logLevels.LOG);
-    // JitsiMeetJS.setLogLevel(JitsiMeetJS.logLevels.ERROR);
   }
 
   connect(roomId) {
@@ -76,15 +38,15 @@ class JitsiRTC {
         );
 
         this.connection.addEventListener(
-          JitsiMeetJS.events.connection.CONNECTION_ESTABLISHED,
+          JitsiConnectionEvents.CONNECTION_ESTABLISHED,
           event => this.onConnectionEstablished(event, roomId),
         );
         this.connection.addEventListener(
-          JitsiMeetJS.events.connection.CONNECTION_FAILED,
+          JitsiConnectionEvents.CONNECTION_FAILED,
           event => this.onConnectionFailed(event),
         );
         this.connection.addEventListener(
-          JitsiMeetJS.events.connection.CONNECTION_DISCONNECTED,
+          JitsiConnectionEvents.CONNECTION_DISCONNECTED,
           () => this.onConnectionDisconnected(),
         );
 
@@ -103,48 +65,47 @@ class JitsiRTC {
 
     this.room = this.connection.initJitsiConference(roomId, configWithBosh);
 
-    this.room.on(JitsiMeetJS.events.conference.CONFERENCE_JOINED, () =>
+    this.room.on(JitsiConferenceEvents.CONFERENCE_JOINED, () =>
       this.onConferenceJoined(),
     );
-    this.room.on(JitsiMeetJS.events.conference.CONFERENCE_LEFT, () =>
+    this.room.on(JitsiConferenceEvents.CONFERENCE_LEFT, () =>
       this.onConferenceLeft(),
     );
-    this.room.on(JitsiMeetJS.events.conference.CONNECTION_INTERRUPTED, () =>
+    this.room.on(JitsiConferenceEvents.CONNECTION_INTERRUPTED, () =>
       this.onConnectionInterrupted(),
     );
-    this.room.on(JitsiMeetJS.events.conference.CONNECTION_RESTORED, () =>
+    this.room.on(JitsiConferenceEvents.CONNECTION_RESTORED, () =>
       this.onConnectionRestored(),
     );
-    this.room.on(JitsiMeetJS.events.conference.USER_JOINED, userId =>
+    this.room.on(JitsiConferenceEvents.USER_JOINED, userId =>
       this.onUserJoined(userId),
     );
-    this.room.on(JitsiMeetJS.events.conference.USER_LEFT, userId =>
+    this.room.on(JitsiConferenceEvents.USER_LEFT, userId =>
       this.onUserLeft(userId),
     );
-    this.room.on(
-      JitsiMeetJS.events.connectionQuality.LOCAL_STATS_UPDATED,
-      stats => this.onLocalStatsUpdated(stats),
+    this.room.on(JitsiConnectionQualityEvents.LOCAL_STATS_UPDATED, stats =>
+      this.onLocalStatsUpdated(stats),
     );
     this.room.on(
-      JitsiMeetJS.events.connectionQuality.REMOTE_STATS_UPDATED,
+      JitsiConnectionQualityEvents.REMOTE_STATS_UPDATED,
       (id, stats) => this.onRemoteStatsUpdated(id, stats),
     );
     this.room.on(
-      JitsiMeetJS.events.conference.PARTICIPANT_CONN_STATUS_CHANGED,
+      JitsiConferenceEvents.PARTICIPANT_CONN_STATUS_CHANGED,
       (id, connectionStatus) =>
         this.onParticipantConnectionStatusChanged(id, connectionStatus),
     );
-    this.room.on(JitsiMeetJS.events.conference.TRACK_ADDED, track =>
+    this.room.on(JitsiConferenceEvents.TRACK_ADDED, track =>
       this.onTrackAdded(track),
     );
-    this.room.on(JitsiMeetJS.events.conference.TRACK_REMOVED, track =>
+    this.room.on(JitsiConferenceEvents.TRACK_REMOVED, track =>
       this.onTrackRemoved(track),
     );
-    this.room.on(JitsiMeetJS.events.conference.TRACK_MUTE_CHANGED, track =>
+    this.room.on(JitsiConferenceEvents.TRACK_MUTE_CHANGED, track =>
       this.onTrackMuteChanged(track),
     );
     this.room.on(
-      JitsiMeetJS.events.conference.TRACK_AUDIO_LEVEL_CHANGED,
+      JitsiConferenceEvents.TRACK_AUDIO_LEVEL_CHANGED,
       (userId, audioLevel) => this.onTrackAudioLevelChanged(userId, audioLevel),
     );
 
@@ -157,15 +118,15 @@ class JitsiRTC {
 
   onConnectionDisconnected() {
     this.connection.removeEventListener(
-      JitsiMeetJS.events.connection.CONNECTION_ESTABLISHED,
+      JitsiConnectionEvents.CONNECTION_ESTABLISHED,
       event => this.onConnectionEstablished(event),
     );
     this.connection.removeEventListener(
-      JitsiMeetJS.events.connection.CONNECTION_FAILED,
+      JitsiConnectionEvents.CONNECTION_FAILED,
       event => this.onConnectionFailed(event),
     );
     this.connection.removeEventListener(
-      JitsiMeetJS.events.connection.CONNECTION_DISCONNECTED,
+      JitsiConnectionEvents.CONNECTION_DISCONNECTED,
       () => this.onConnectionDisconnected(),
     );
   }

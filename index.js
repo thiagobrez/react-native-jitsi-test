@@ -1,6 +1,7 @@
 /**
  * @format
  */
+import './src/features/lib-jitsi-meet/polyfills';
 
 import {AppRegistry} from 'react-native';
 import App from './App';

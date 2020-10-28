@@ -1,7 +1,7 @@
 // @flow
 
-import { NativeModules } from 'react-native';
-import { RTCPeerConnection, RTCSessionDescription } from 'react-native-webrtc';
+import {NativeModules} from 'react-native';
+import {RTCPeerConnection, RTCSessionDescription} from 'react-native-webrtc';
 
 /* eslint-disable no-unused-vars */
 
@@ -36,75 +36,74 @@ const SOCK_STREAM = 1; /* stream socket */
  * @class
  */
 export default function _RTCPeerConnection(...args: any[]) {
+  /* eslint-disable indent, no-invalid-this */
 
-    /* eslint-disable indent, no-invalid-this */
+  RTCPeerConnection.apply(this, args);
 
-    RTCPeerConnection.apply(this, args);
+  this.onaddstream = (
+    ...args // eslint-disable-line no-shadow
+  ) =>
+    (this._onaddstreamQueue
+      ? this._queueOnaddstream
+      : this._invokeOnaddstream
+    ).apply(this, args);
 
-    this.onaddstream = (...args) => // eslint-disable-line no-shadow
-        (this._onaddstreamQueue
-                ? this._queueOnaddstream
-                : this._invokeOnaddstream)
-            .apply(this, args);
+  // Shadow RTCPeerConnection's onaddstream but after _RTCPeerConnection has
+  // assigned to the property in question. Defining the property on
+  // _RTCPeerConnection's prototype may (or may not, I don't know) work but I
+  // don't want to try because the following approach appears to work and I
+  // understand it.
 
-    // Shadow RTCPeerConnection's onaddstream but after _RTCPeerConnection has
-    // assigned to the property in question. Defining the property on
-    // _RTCPeerConnection's prototype may (or may not, I don't know) work but I
-    // don't want to try because the following approach appears to work and I
-    // understand it.
+  // $FlowFixMe
+  Object.defineProperty(this, 'onaddstream', {
+    configurable: true,
+    enumerable: true,
+    get() {
+      return this._onaddstream;
+    },
+    set(value) {
+      this._onaddstream = value;
+    },
+  });
 
-    // $FlowFixMe
-    Object.defineProperty(this, 'onaddstream', {
-        configurable: true,
-        enumerable: true,
-        get() {
-            return this._onaddstream;
-        },
-        set(value) {
-            this._onaddstream = value;
-        }
-    });
-
-    /* eslint-enable indent, no-invalid-this */
+  /* eslint-enable indent, no-invalid-this */
 }
 
 _RTCPeerConnection.prototype = Object.create(RTCPeerConnection.prototype);
 _RTCPeerConnection.prototype.constructor = _RTCPeerConnection;
 
 _RTCPeerConnection.prototype._invokeOnaddstream = function(...args) {
-    const onaddstream = this._onaddstream;
+  const onaddstream = this._onaddstream;
 
-    return onaddstream && onaddstream.apply(this, args);
+  return onaddstream && onaddstream.apply(this, args);
 };
 
 _RTCPeerConnection.prototype._invokeQueuedOnaddstream = function(q) {
-    q && q.forEach(args => {
-        try {
-            this._invokeOnaddstream(...args);
-        } catch (e) {
-            // TODO Determine whether the combination of the standard
-            // setRemoteDescription and onaddstream results in a similar
-            // swallowing of errors.
-            console.error(e);
-        }
+  q &&
+    q.forEach(args => {
+      try {
+        this._invokeOnaddstream(...args);
+      } catch (e) {
+        // TODO Determine whether the combination of the standard
+        // setRemoteDescription and onaddstream results in a similar
+        // swallowing of errors.
+        console.error(e);
+      }
     });
 };
 
 _RTCPeerConnection.prototype._queueOnaddstream = function(...args) {
-    this._onaddstreamQueue.push(Array.from(args));
+  this._onaddstreamQueue.push(Array.from(args));
 };
 
 _RTCPeerConnection.prototype.setRemoteDescription = function(description) {
+  return _synthesizeIPv6Addresses(description)
+    .catch(reason => {
+      reason && console.error(reason);
 
-    return (
-        _synthesizeIPv6Addresses(description)
-            .catch(reason => {
-                reason && console.error(reason);
-
-                return description;
-            })
-            .then(value => _setRemoteDescription.bind(this)(value)));
-
+      return description;
+    })
+    .then(value => _setRemoteDescription.bind(this)(value));
 };
 
 /**
@@ -119,34 +118,37 @@ _RTCPeerConnection.prototype.setRemoteDescription = function(description) {
  * @returns {Promise}
  */
 function _setRemoteDescription(description) {
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
+    /* eslint-disable no-invalid-this */
 
-        /* eslint-disable no-invalid-this */
+    // Ensure I'm not remembering onaddstream invocations from previous
+    // setRemoteDescription calls. I shouldn't be but... anyway.
+    this._onaddstreamQueue = [];
 
-        // Ensure I'm not remembering onaddstream invocations from previous
-        // setRemoteDescription calls. I shouldn't be but... anyway.
-        this._onaddstreamQueue = [];
+    RTCPeerConnection.prototype.setRemoteDescription
+      .call(this, description)
+      .then(
+        (...args) => {
+          let q;
 
-        RTCPeerConnection.prototype.setRemoteDescription.call(this, description)
-            .then((...args) => {
-                let q;
+          try {
+            resolve(...args);
+          } finally {
+            q = this._onaddstreamQueue;
+            this._onaddstreamQueue = undefined;
+          }
 
-                try {
-                    resolve(...args);
-                } finally {
-                    q = this._onaddstreamQueue;
-                    this._onaddstreamQueue = undefined;
-                }
+          this._invokeQueuedOnaddstream(q);
+        },
+        (...args) => {
+          this._onaddstreamQueue = undefined;
 
-                this._invokeQueuedOnaddstream(q);
-            }, (...args) => {
-                this._onaddstreamQueue = undefined;
+          reject(...args);
+        },
+      );
 
-                reject(...args);
-            });
-
-        /* eslint-enable no-invalid-this */
-    });
+    /* eslint-enable no-invalid-this */
+  });
 }
 
 // XXX The function _synthesizeIPv6FromIPv4Address is not placed relative to the
@@ -164,35 +166,37 @@ function _setRemoteDescription(description) {
  * {@code ipv4}.
  */
 const _synthesizeIPv6FromIPv4Address: string => Promise<?string> = (function() {
-    // POSIX.getaddrinfo
-    const { POSIX } = NativeModules;
+  // POSIX.getaddrinfo
+  const {POSIX} = NativeModules;
 
-    if (POSIX) {
-        const { getaddrinfo } = POSIX;
+  if (POSIX) {
+    const {getaddrinfo} = POSIX;
 
-        if (typeof getaddrinfo === 'function') {
-            return ipv4 =>
-                getaddrinfo(/* hostname */ ipv4, /* servname */ undefined)
-                    .then(([ { ai_addr: ipv6 } ]) => ipv6);
-        }
+    if (typeof getaddrinfo === 'function') {
+      return ipv4 =>
+        getaddrinfo(/* hostname */ ipv4, /* servname */ undefined).then(
+          ([{ai_addr: ipv6}]) => ipv6,
+        );
     }
+  }
 
-    // NAT64AddrInfo.getIPv6Address
-    const { NAT64AddrInfo } = NativeModules;
+  // NAT64AddrInfo.getIPv6Address
+  const {NAT64AddrInfo} = NativeModules;
 
-    if (NAT64AddrInfo) {
-        const { getIPv6Address } = NAT64AddrInfo;
+  if (NAT64AddrInfo) {
+    const {getIPv6Address} = NAT64AddrInfo;
 
-        if (typeof getIPv6Address === 'function') {
-            return getIPv6Address;
-        }
+    if (typeof getIPv6Address === 'function') {
+      return getIPv6Address;
     }
+  }
 
-    // There's no POSIX.getaddrinfo or NAT64AddrInfo.getIPv6Address.
-    return () =>
-        Promise.reject(
-            'The impossible just happened! No POSIX.getaddrinfo or'
-                + ' NAT64AddrInfo.getIPv6Address!');
+  // There's no POSIX.getaddrinfo or NAT64AddrInfo.getIPv6Address.
+  return () =>
+    Promise.reject(
+      'The impossible just happened! No POSIX.getaddrinfo or' +
+        ' NAT64AddrInfo.getIPv6Address!',
+    );
 })();
 
 /**
@@ -204,12 +208,12 @@ const _synthesizeIPv6FromIPv4Address: string => Promise<?string> = (function() {
  * @returns {Promise}
  */
 function _synthesizeIPv6Addresses(sdp) {
-    return (
-        new Promise(resolve => resolve(_synthesizeIPv6Addresses0(sdp)))
-            .then(({ ips, lines }) =>
-                Promise.all(Array.from(ips.values()))
-                    .then(() => _synthesizeIPv6Addresses1(sdp, ips, lines))
-            ));
+  return new Promise(resolve => resolve(_synthesizeIPv6Addresses0(sdp))).then(
+    ({ips, lines}) =>
+      Promise.all(Array.from(ips.values())).then(() =>
+        _synthesizeIPv6Addresses1(sdp, ips, lines),
+      ),
+  );
 }
 
 /* eslint-disable max-depth */
@@ -226,83 +230,86 @@ function _synthesizeIPv6Addresses(sdp) {
  * }}
  */
 function _synthesizeIPv6Addresses0(sessionDescription) {
-    const sdp = sessionDescription.sdp;
-    let start = 0;
-    const lines = [];
-    const ips = new Map();
+  const sdp = sessionDescription.sdp;
+  let start = 0;
+  const lines = [];
+  const ips = new Map();
 
-    do {
-        const end = sdp.indexOf('\r\n', start);
-        let line;
+  do {
+    const end = sdp.indexOf('\r\n', start);
+    let line;
 
-        if (end === -1) {
-            line = sdp.substring(start);
+    if (end === -1) {
+      line = sdp.substring(start);
 
-            // Break out of the loop at the end of the iteration.
-            start = undefined;
-        } else {
-            line = sdp.substring(start, end);
-            start = end + 2;
+      // Break out of the loop at the end of the iteration.
+      start = undefined;
+    } else {
+      line = sdp.substring(start, end);
+      start = end + 2;
+    }
+
+    if (line.startsWith('a=candidate:')) {
+      const candidate = line.split(' ');
+
+      if (candidate.length >= 10 && candidate[6] === 'typ') {
+        const ip4s = [candidate[4]];
+        let abort = false;
+
+        for (let i = 8; i < candidate.length; ++i) {
+          if (candidate[i] === 'raddr') {
+            ip4s.push(candidate[++i]);
+            break;
+          }
         }
 
-        if (line.startsWith('a=candidate:')) {
-            const candidate = line.split(' ');
+        for (const ip of ip4s) {
+          if (ip.indexOf(':') === -1) {
+            ips.has(ip) ||
+              ips.set(
+                ip,
+                new Promise((resolve, reject) => {
+                  const v = ips.get(ip);
 
-            if (candidate.length >= 10 && candidate[6] === 'typ') {
-                const ip4s = [ candidate[4] ];
-                let abort = false;
-
-                for (let i = 8; i < candidate.length; ++i) {
-                    if (candidate[i] === 'raddr') {
-                        ip4s.push(candidate[++i]);
-                        break;
-                    }
-                }
-
-                for (const ip of ip4s) {
-                    if (ip.indexOf(':') === -1) {
-                        ips.has(ip)
-                            || ips.set(ip, new Promise((resolve, reject) => {
-                                const v = ips.get(ip);
-
-                                if (v && typeof v === 'string') {
-                                    resolve(v);
-                                } else {
-                                    _synthesizeIPv6FromIPv4Address(ip).then(
-                                        value => {
-                                            if (!value
-                                                    || value.indexOf(':') === -1
-                                                    || value === ips.get(ip)) {
-                                                ips.delete(ip);
-                                            } else {
-                                                ips.set(ip, value);
-                                            }
-                                            resolve(value);
-                                        },
-                                        reject);
-                                }
-                            }));
-                    } else {
-                        abort = true;
-                        break;
-                    }
-                }
-                if (abort) {
-                    ips.clear();
-                    break;
-                }
-
-                line = candidate;
-            }
+                  if (v && typeof v === 'string') {
+                    resolve(v);
+                  } else {
+                    _synthesizeIPv6FromIPv4Address(ip).then(value => {
+                      if (
+                        !value ||
+                        value.indexOf(':') === -1 ||
+                        value === ips.get(ip)
+                      ) {
+                        ips.delete(ip);
+                      } else {
+                        ips.set(ip, value);
+                      }
+                      resolve(value);
+                    }, reject);
+                  }
+                }),
+              );
+          } else {
+            abort = true;
+            break;
+          }
+        }
+        if (abort) {
+          ips.clear();
+          break;
         }
 
-        lines.push(line);
-    } while (start);
+        line = candidate;
+      }
+    }
 
-    return {
-        ips,
-        lines
-    };
+    lines.push(line);
+  } while (start);
+
+  return {
+    ips,
+    lines,
+  };
 }
 
 /* eslint-enable max-depth */
@@ -320,33 +327,33 @@ function _synthesizeIPv6Addresses0(sessionDescription) {
  * result of the synthesis of IPv6 addresses.
  */
 function _synthesizeIPv6Addresses1(sessionDescription, ips, lines) {
-    if (ips.size === 0) {
-        return sessionDescription;
-    }
+  if (ips.size === 0) {
+    return sessionDescription;
+  }
 
-    for (let l = 0; l < lines.length; ++l) {
-        const candidate = lines[l];
+  for (let l = 0; l < lines.length; ++l) {
+    const candidate = lines[l];
 
-        if (typeof candidate !== 'string') {
-            let ip4 = candidate[4];
-            let ip6 = ips.get(ip4);
+    if (typeof candidate !== 'string') {
+      let ip4 = candidate[4];
+      let ip6 = ips.get(ip4);
 
-            ip6 && (candidate[4] = ip6);
+      ip6 && (candidate[4] = ip6);
 
-            for (let i = 8; i < candidate.length; ++i) {
-                if (candidate[i] === 'raddr') {
-                    ip4 = candidate[++i];
-                    (ip6 = ips.get(ip4)) && (candidate[i] = ip6);
-                    break;
-                }
-            }
-
-            lines[l] = candidate.join(' ');
+      for (let i = 8; i < candidate.length; ++i) {
+        if (candidate[i] === 'raddr') {
+          ip4 = candidate[++i];
+          (ip6 = ips.get(ip4)) && (candidate[i] = ip6);
+          break;
         }
-    }
+      }
 
-    return new RTCSessionDescription({
-        sdp: lines.join('\r\n'),
-        type: sessionDescription.type
-    });
+      lines[l] = candidate.join(' ');
+    }
+  }
+
+  return new RTCSessionDescription({
+    sdp: lines.join('\r\n'),
+    type: sessionDescription.type,
+  });
 }
